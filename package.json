@@ -1,0 +1,22 @@
+{
+  "name": "brewstand",
+  "version": "1.0.0",
+  "description": "Just a BrewStand",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "node index.js"
+  },
+  "author": "dousha",
+  "license": "GNU GPLv3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dousha/brewstand.git"
+  },
+  "dependencies": {
+    "http": "0.0.0",
+    "mongodb": "^3.1.10",
+    "querystring": "^0.2.0",
+    "websocket": "^1.0.28"
+  }
+}
