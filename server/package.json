@@ -5,15 +5,19 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "node index.js"
+    "install": "tsc && node index.js",
+    "run": "tsc && node index.js"
   },
   "author": "dousha",
-  "license": "GNU GPLv3",
+  "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/dousha/brewstand.git"
   },
   "dependencies": {
+    "@types/mongodb": "^3.1.20",
+    "@types/node": "^11.10.4",
+    "@types/websocket": "0.0.40",
     "http": "0.0.0",
     "mongodb": "^3.1.10",
     "querystring": "^0.2.0",
