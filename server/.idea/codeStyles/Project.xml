@@ -4,6 +4,10 @@
       <option name="FORCE_SEMICOLON_STYLE" value="true" />
       <option name="FORCE_QUOTE_STYlE" value="true" />
     </JSCodeStyleSettings>
+    <TypeScriptCodeStyleSettings version="1">
+      <option name="JSDOC_INCLUDE_TYPES" value="true" />
+      <option name="PREFER_AS_TYPE_CAST" value="true" />
+    </TypeScriptCodeStyleSettings>
     <codeStyleSettings language="CSS">
       <indentOptions>
         <option name="USE_TAB_CHARACTER" value="true" />

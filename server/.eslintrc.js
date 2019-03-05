@@ -24,6 +24,11 @@ module.exports = {
         "semi": [
             "error",
             "always"
-        ]
+        ],
+	    "eqeqeq": [
+	    	"error",
+		    "allow-null"
+	    ],
+	    "no-unexpected-multiline": true
     }
 };

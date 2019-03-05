@@ -1,8 +1,8 @@
 // @ts-ignore
-import {IMessage, request, server} from "websocket";
-import {Db, MongoClient} from "mongodb";
-import {Server} from "https";
-import {IncomingMessage, ServerResponse} from "http";
+import {IMessage, request, server} from "websocket"
+import {Db, MongoClient} from "mongodb"
+import {Server} from "https"
+import {IncomingMessage, ServerResponse} from "http"
 
 let fs = require('fs');
 let path = require('path');
@@ -12,20 +12,22 @@ let mongo = require('mongodb');
 let readline = require('readline');
 
 function log(msg: string) {
-	console.log((new Date().toLocaleString()) + ' ' + msg);
+	console.log((new Date().toLocaleString()) + ' ' + msg)
 }
 
 export module Brew {
-	export class EventListener {
-
+	export interface EventListener {
+		on(event: string, evObj: any): void
 	}
 
 	export interface Plugin {
-		onEnable(): boolean;
-		onDisable(): void;
-		registerListeners(): Array<EventListener>;
-		readonly name: string;
-		readonly requisitions: Array<string>;
+		onEnable(): boolean
+		onDisable(): void
+		onCommand(cmd: string, args: Array<string>): boolean
+		registerListeners(): Array<EventListener>
+		readonly name: string
+		readonly requisitions: Array<string>
+		readonly commands: Array<string>
 	}
 
 	export class GameServer {
@@ -36,9 +38,11 @@ export module Brew {
 					log("Database opened, using " + this.config.db);
 				}, (err: any) => console.log(err))
 				.then(() => this.prepareWebsocket())
+				.then(() => this.preparePlugins())
+				.then(() => this.interactive());
 		}
 
-		private prepareWebsocket() {
+		private async prepareWebsocket() {
 			let server = http.createServer(function (request: IncomingMessage, response: ServerResponse) {
 				log('Incoming request for ' + request.url + ', rejected');
 				response.writeHead(404);
@@ -62,7 +66,7 @@ export module Brew {
 				} else {
 					try {
 						let conn = request.accept('echo-protocol', request.origin);
-						log('Connection accepted');
+						log('Connection accepted from ' + request.host);
 						conn.on('message', (msg: IMessage) => {
 							if (msg.type === 'utf8') {
 								log(msg.utf8Data || "(null)");
@@ -82,18 +86,22 @@ export module Brew {
 			this.socket = socket;
 		}
 
-		private preparePlugins() {
+		private async preparePlugins() {
 			if (!fs.existsSync("plugins")) {
 				fs.mkdirSync("plugins");
+				log("Created plugins folder");
 			}
+			let count = 0;
 			fs.readdirSync("plugins").forEach((f: string) => {
 				// only a shallow walk
 				let file = path.join("plugins", f);
-				if (fs.statSync(file).isFile() && f.endsWith(".js")) {
+				if (fs.statSync(file).isFile() && f.endsWith(".ts")) {
 					// DBG
 					console.log(f);
+					++count;
 				}
 			});
+			log("Loaded " + count + " plugins");
 		}
 
 		public interactive() {
@@ -110,6 +118,8 @@ export module Brew {
 					console.log("Bad command");
 				}
 			});
+
+			log("Server started");
 		}
 
 		public shutdown() {
