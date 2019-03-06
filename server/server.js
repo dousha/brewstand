@@ -48,22 +48,28 @@ var Brew;
 (function (Brew) {
     var GameServer = (function () {
         function GameServer() {
-            var _this = this;
             this.config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
             this.plugins = new Map();
-            mongo.connect("mongodb://localhost:27017/" + this.config.db)
-                .then(function (client) {
-                _this.db = client.db(_this.config.db);
-                log("Database opened, using " + _this.config.db);
-            }, function (err) { return console.log(err); })
-                .then(function () { return _this.prepareWebsocket(); })
-                .then(function () { return _this.preparePlugins(); })
-                .then(function () { return _this.interactive(); });
+            this.listeners = new Map();
+            this.prepareEverything();
+            setInterval(function () {
+            }, 1000);
         }
+        GameServer.prototype.prepareEverything = function () {
+            var _this_1 = this;
+            mongo.connect("mongodb://localhost:27017/" + this.config.db, {
+                useNewUrlParser: true
+            }).then(function (client) {
+                _this_1.db = client.db(_this_1.config.db);
+                log("Database opened, using " + _this_1.config.db);
+            }, function (err) { return console.log(err); })
+                .then(function () { return _this_1.prepareWebsocket(); })
+                .then(function () { return _this_1.preparePlugins(); });
+        };
         GameServer.prototype.prepareWebsocket = function () {
             return __awaiter(this, void 0, void 0, function () {
                 function originIsAllowed(origin) {
-                    return true;
+                    return origin && origin !== "*";
                 }
                 var server, socket;
                 return __generator(this, function (_a) {
@@ -86,7 +92,7 @@ var Brew;
                         else {
                             try {
                                 var conn_1 = request.accept('echo-protocol', request.origin);
-                                log('Connection accepted');
+                                log('Connection accepted from ' + request.host);
                                 conn_1.on('message', function (msg) {
                                     if (msg.type === 'utf8') {
                                         log(msg.utf8Data || "(null)");
@@ -109,9 +115,13 @@ var Brew;
                 });
             });
         };
+        GameServer.isPlugin = function (instance) {
+            return instance && instance.name && typeof (instance.name) === "string";
+        };
         GameServer.prototype.preparePlugins = function () {
             return __awaiter(this, void 0, void 0, function () {
                 var count;
+                var _this_1 = this;
                 return __generator(this, function (_a) {
                     if (!fs.existsSync("plugins")) {
                         fs.mkdirSync("plugins");
@@ -121,7 +131,35 @@ var Brew;
                     fs.readdirSync("plugins").forEach(function (f) {
                         var file = path.join("plugins", f);
                         if (fs.statSync(file).isFile() && f.endsWith(".js")) {
-                            console.log(f);
+                            var moduleName = "./" + path.join("plugins", f.substring(0, f.length - 3));
+                            var module_1 = require(moduleName);
+                            var instance = new module_1();
+                            if (Brew.GameServer.isPlugin(instance)) {
+                                var plugin = instance;
+                                log("Loading " + plugin.name + "...");
+                                try {
+                                    if (!plugin.onEnable(_this_1)) {
+                                        log("Failed loading " + plugin.name);
+                                    }
+                                    else {
+                                        _this_1.plugins.set(plugin.name, plugin);
+                                        var pluginListeners = plugin.listeners;
+                                        for (var _i = 0, pluginListeners_1 = pluginListeners; _i < pluginListeners_1.length; _i++) {
+                                            var listener = pluginListeners_1[_i];
+                                            var localListeners = _this_1.listeners.get(listener.type) || new Array();
+                                            localListeners.push(listener);
+                                            _this_1.listeners.set(listener.type, localListeners);
+                                        }
+                                    }
+                                }
+                                catch (e) {
+                                    log(e);
+                                }
+                                log("Loaded " + plugin.name);
+                            }
+                            else {
+                                log(file + " is not a plugin");
+                            }
                             ++count;
                         }
                     });
@@ -131,7 +169,7 @@ var Brew;
             });
         };
         GameServer.prototype.interactive = function () {
-            var _this = this;
+            var _this_1 = this;
             var rl = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout,
@@ -139,7 +177,7 @@ var Brew;
             });
             rl.on("line", function (input) {
                 if (input === "stop") {
-                    _this.shutdown();
+                    _this_1.shutdown();
                 }
                 else {
                     console.log("Bad command");
@@ -149,11 +187,33 @@ var Brew;
         };
         GameServer.prototype.shutdown = function () {
             log("Server closing...");
+            this.plugins.forEach(function (value, key) {
+                log("Disabling " + key + "...");
+                try {
+                    value.onDisable();
+                }
+                catch (e) {
+                    log(e);
+                }
+            });
             this.socket && this.socket.closeAllConnections();
             this.server && this.server.close();
             log("Server closed");
             process.exit(0);
         };
+        GameServer.prototype.fireEvent = function (type, data) {
+            (this.listeners.get(type) || new Array()).forEach(function (it) {
+                it.onEvent(data);
+            });
+        };
+        Object.defineProperty(GameServer, "instance", {
+            get: function () {
+                return (this._this) || (this._this = new GameServer());
+            },
+            enumerable: true,
+            configurable: true
+        });
+        GameServer._this = new GameServer();
         return GameServer;
     }());
     Brew.GameServer = GameServer;

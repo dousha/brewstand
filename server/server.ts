@@ -16,30 +16,38 @@ function log(msg: string) {
 }
 
 export module Brew {
-	export interface EventListener {
-		on(event: string, evObj: any): void
+	export interface Listener {
+		onEvent(data: any): boolean;
+		readonly type: string;
 	}
 
 	export interface Plugin {
-		onEnable(): boolean
+		onEnable(server: GameServer): boolean
 		onDisable(): void
 		onCommand(cmd: string, args: Array<string>): boolean
-		registerListeners(): Array<EventListener>
 		readonly name: string
 		readonly requisitions: Array<string>
 		readonly commands: Array<string>
+		readonly listeners: Array<Listener>
 	}
 
 	export class GameServer {
-		public constructor() {
-			mongo.connect("mongodb://localhost:27017/" + this.config.db)
-				.then((client: MongoClient) => {
-					this.db = client.db(this.config.db);
-					log("Database opened, using " + this.config.db);
-				}, (err: any) => console.log(err))
+		private constructor() {
+			this.prepareEverything();
+			setInterval(function () {
+
+			}, 1000);
+		}
+
+		private prepareEverything() {
+			mongo.connect("mongodb://localhost:27017/" + this.config.db, {
+				useNewUrlParser: true
+			}).then((client: MongoClient) => {
+				this.db = client.db(this.config.db);
+				log("Database opened, using " + this.config.db);
+			}, (err: any) => console.log(err))
 				.then(() => this.prepareWebsocket())
-				.then(() => this.preparePlugins())
-				.then(() => this.interactive());
+				.then(() => this.preparePlugins());
 		}
 
 		private async prepareWebsocket() {
@@ -56,7 +64,7 @@ export module Brew {
 			});
 
 			function originIsAllowed(origin: string) {
-				return true;
+				return origin && origin !== "*";
 			}
 
 			socket.on('request', (request: request) => {
@@ -76,6 +84,9 @@ export module Brew {
 								conn.sendBytes(msg.binaryData || new Buffer(0));
 							}
 						});
+						conn.on('close', (reasonCode: number, description: string) => {
+							log(`${conn.remoteAddress} closed (${reasonCode}): ${description}`);
+						});
 					} catch (e) {
 						log(e);
 					}
@@ -84,6 +95,10 @@ export module Brew {
 
 			this.server = server;
 			this.socket = socket;
+		}
+
+		private static isPlugin(instance: any): instance is Plugin {
+			return instance && instance.name && typeof(instance.name) === "string";
 		}
 
 		private async preparePlugins() {
@@ -95,9 +110,32 @@ export module Brew {
 			fs.readdirSync("plugins").forEach((f: string) => {
 				// only a shallow walk
 				let file = path.join("plugins", f);
-				if (fs.statSync(file).isFile() && f.endsWith(".ts")) {
-					// DBG
-					console.log(f);
+				if (fs.statSync(file).isFile() && f.endsWith(".js")) {
+					let moduleName = "./" + path.join("plugins", f.substring(0, f.length - 3));
+					let module = require(moduleName);
+					let instance = new module(); // export = class
+					if (Brew.GameServer.isPlugin(instance)) {
+						let plugin = instance as Plugin;
+						log(`Loading ${plugin.name}...`);
+						try {
+							if (!plugin.onEnable(this)) {
+								log(`Failed loading ${plugin.name}`);
+							} else {
+								this.plugins.set(plugin.name, plugin);
+								let pluginListeners = plugin.listeners;
+								for (let listener of pluginListeners) {
+									let localListeners = this.listeners.get(listener.type) || new Array<Listener>();
+									localListeners.push(listener);
+									this.listeners.set(listener.type, localListeners);
+								}
+							}
+						} catch (e) {
+							log(e);
+						}
+						log(`Loaded ${plugin.name}`);
+					} else {
+						log(`${file} is not a plugin`);
+					}
 					++count;
 				}
 			});
@@ -124,6 +162,14 @@ export module Brew {
 
 		public shutdown() {
 			log("Server closing...");
+			this.plugins.forEach((value, key) => {
+				log(`Disabling ${key}...`);
+				try {
+					value.onDisable();
+				} catch (e) {
+					log(e);
+				}
+			});
 			this.socket && this.socket.closeAllConnections();
 			this.server && this.server.close();
 			// Kotlin has this.socket?.closeAllConnections(), you know..
@@ -131,10 +177,22 @@ export module Brew {
 			process.exit(0);
 		}
 
+		public fireEvent(type: string, data: any) {
+			(this.listeners.get(type) || new Array<Listener>()).forEach(it => {
+				it.onEvent(data);
+			});
+		}
+
+		public static get instance() {
+			return (this._this) || (this._this = new GameServer());
+		}
+
+		private static _this: GameServer = new GameServer();
 		private config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 		private db?: Db;
 		private server?: Server;
 		private socket?: server;
-		private plugins: Map<string, Plugin> = new Map();
+		private plugins: Map<string, Plugin> = new Map<string, Plugin>();
+		private listeners: Map<string, Array<Listener>> = new Map<string, Array<Listener>>();
 	}
 }

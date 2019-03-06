@@ -1,2 +1,2 @@
 import { Brew } from "./server";
-new Brew.GameServer();
+Brew.GameServer.instance.interactive();
