@@ -22,7 +22,7 @@ export module Brew {
 	}
 
 	export interface Plugin {
-		onEnable(server: GameServer): boolean
+		onEnable(): boolean
 		onDisable(): void
 		onCommand(cmd: string, args: Array<string>): boolean
 		readonly name: string
@@ -118,8 +118,8 @@ export module Brew {
 						let plugin = instance as Plugin;
 						log(`Loading ${plugin.name}...`);
 						try {
-							if (!plugin.onEnable(this)) {
-								log(`Failed loading ${plugin.name}`);
+							if (!plugin.onEnable()) {
+								log(`Failed loading ${plugin.name} because it reported an error`);
 							} else {
 								this.plugins.set(plugin.name, plugin);
 								let pluginListeners = plugin.listeners;
@@ -130,11 +130,12 @@ export module Brew {
 								}
 							}
 						} catch (e) {
+							log(`Failed loading ${plugin.name} because it's generating exceptions:`);
 							log(e);
 						}
 						log(`Loaded ${plugin.name}`);
 					} else {
-						log(`${file} is not a plugin`);
+						log(`${file} is not a plugin, or the class is not correctly exported`);
 					}
 					++count;
 				}

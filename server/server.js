@@ -103,6 +103,9 @@ var Brew;
                                         conn_1.sendBytes(msg.binaryData || new Buffer(0));
                                     }
                                 });
+                                conn_1.on('close', function (reasonCode, description) {
+                                    log(conn_1.remoteAddress + " closed (" + reasonCode + "): " + description);
+                                });
                             }
                             catch (e) {
                                 log(e);
@@ -138,8 +141,8 @@ var Brew;
                                 var plugin = instance;
                                 log("Loading " + plugin.name + "...");
                                 try {
-                                    if (!plugin.onEnable(_this_1)) {
-                                        log("Failed loading " + plugin.name);
+                                    if (!plugin.onEnable()) {
+                                        log("Failed loading " + plugin.name + " because it reported an error");
                                     }
                                     else {
                                         _this_1.plugins.set(plugin.name, plugin);
@@ -153,12 +156,13 @@ var Brew;
                                     }
                                 }
                                 catch (e) {
+                                    log("Failed loading " + plugin.name + " because it's generating exceptions:");
                                     log(e);
                                 }
                                 log("Loaded " + plugin.name);
                             }
                             else {
-                                log(file + " is not a plugin");
+                                log(file + " is not a plugin, or the class is not correctly exported");
                             }
                             ++count;
                         }
