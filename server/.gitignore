@@ -62,3 +62,7 @@ typings/
 
 # VS Code stuff
 .vscode
+
+# IDEA stuff
+.idea/workspace.xml
+.idea/
