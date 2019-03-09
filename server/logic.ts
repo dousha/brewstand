@@ -1,4 +1,8 @@
+import fs from "fs";
+import path from "path";
+
 namespace Brew {
+
 	export class Vector2 {
 		public constructor(x: number, y: number) {
 			this.x = x;
@@ -42,9 +46,33 @@ namespace Brew {
 	}
 
 	export class World {
+		public static fromFile(fileName: string) {
+			let worldPath = path.join("worlds/", fileName);
+			return JSON.parse(fs.readFileSync(worldPath).toString()) as World;
+		}
+
+		public joinEntity(entity: Entity) {
+			this.entities.push(entity);
+		}
+
+		public leaveEntity(entity: Entity) {
+			let index = this.entities.indexOf(entity);
+			if (index > -1) {
+				this.entities.splice(index, 1);
+			}
+		}
+
+		public spawnEntity(entity: Entity) {
+			this.joinEntity(entity);
+			entity.position = this.spawnPoint;
+		}
+
 		private name = "(null)";
-		private map = [];
-		private entities = [];
+		private width = 0;
+		private height = 0;
+		private spawnPoint = new Vector2(0, 0);
+		private map = new Array<Array<Tile>>();
+		private entities = new Array<Entity>();
 	}
 
 	export class Item {
@@ -122,7 +150,9 @@ namespace Brew {
 		}
 
 		public teleport(world: World, position: Vector2) {
-
+			this._world.leaveEntity(this);
+			world.joinEntity(this);
+			this._position = position;
 		}
 
 		public get inventory() {
@@ -151,7 +181,7 @@ namespace Brew {
 		private readonly _name: string;
 	}
 
-	export class NonPlayerCharacter extends Entity{
+	export class NonPlayerCharacter extends Entity {
 
 	}
 
