@@ -1,11 +1,9 @@
-import { Brew } from "../server";
-import Plugin = Brew.Plugin;
-import GameServer = Brew.GameServer;
+import { GameServer, Plugin, Listener } from "../server";
 import Timeout = NodeJS.Timeout;
 
 class Clock implements Plugin {
 	readonly commands: Array<string> = [];
-	readonly listeners: Array<Brew.Listener> = [];
+	readonly listeners: Array<Listener> = [];
 	readonly name: string = "ServerClock";
 	readonly requisitions: Array<string> = [];
 

@@ -1,2 +1,2 @@
-import { Brew } from "./server";
-Brew.GameServer.instance.interactive();
+import { GameServer } from "./server";
+GameServer.instance.interactive();

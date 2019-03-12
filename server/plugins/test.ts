@@ -1,7 +1,6 @@
-import {Brew} from "../server";
-import Listener = Brew.Listener;
+import { Plugin, Listener } from "../server";
 
-class TestPlugin implements Brew.Plugin {
+class TestPlugin implements Plugin {
 	readonly commands: Array<string> = [];
 	readonly name: string = "TestPlugin";
 	readonly requisitions: Array<string> = [];
