@@ -12,7 +12,7 @@ export class WindowManager {
 		if (ctx) {
 			for (let w of this.windows) {
 				ctx.save();
-				ctx.translate(w.X, w.Y);
+				ctx.translate(w.getX(), w.getY());
 				w.render(ctx);
 				ctx.restore();
 			}
@@ -23,8 +23,9 @@ export class WindowManager {
 
 	public resizeCanvas() {
 		if (document && document.documentElement) {
-			let width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-			let height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+			let rect = document.documentElement.getClientRects()[0];
+			let width = Math.floor(Math.max(document.documentElement.clientWidth, window.innerWidth || 0));
+			let height = Math.floor(Math.max(document.documentElement.clientHeight, window.innerHeight || 0));
 			this.canvas.width = width;
 			this.canvas.height = height;
 		} else {
@@ -44,11 +45,11 @@ export class WindowManager {
 		}
 	}
 
-	public get isDebugging() {
+	public isDebugging() {
 		return this.debugging;
 	}
 
-	public set isDebugging(b: boolean) {
+	public setDebugging(b: boolean) {
 		this.debugging = b;
 	}
 
@@ -66,15 +67,17 @@ export class UserWindow {
 
 	public render(ctx: CanvasRenderingContext2D) {
 		// draw a box
+		let titleBarHeight = 20;
 		ctx.fillStyle = "black";
 		ctx.strokeStyle = "black";
 		ctx.font = '12px monospace';
-		ctx.strokeRect(0, 0, this.width, 20);
+		ctx.textBaseline = "top";
+		ctx.strokeRect(0, 0, this.width, titleBarHeight);
 		ctx.fillText(this.title, 3, 3);
-		ctx.strokeRect(0, 20, this.width, this.height);
+		ctx.strokeRect(0, titleBarHeight, this.width, this.height);
 		// translate into the stuff
 		ctx.save();
-		ctx.translate(this.x, this.y);
+		ctx.translate(this.x, this.y + titleBarHeight);
 		// then draw components
 		for (let component of this.components) {
 			if (component.isVisible) {
@@ -104,15 +107,11 @@ export class UserWindow {
 
 	public onClose() { }
 
-	public get requestForFocus() {
-		return this.needFocus;
-	}
-
-	public get X() {
+	public getX() {
 		return this.x;
 	}
 
-	public get Y() {
+	public getY() {
 		return this.y;
 	}
 
@@ -136,43 +135,43 @@ export abstract class Component {
 
 	public abstract render(ctx: CanvasRenderingContext2D): void;
 
-	public get X() {
+	public getX() {
 		return this.x;
 	}
 
-	public set X(x: number) {
+	public setX(x: number) {
 		this.x = x;
 	}
 
-	public get Y() {
+	public getY() {
 		return this.y;
 	}
 
-	public set Y(y: number) {
+	public setY(y: number) {
 		this.y = y;
 	}
 
-	public get W() {
+	public getW() {
 		return this.width;
 	}
 
-	public set W(w: number) {
+	public setW(w: number) {
 		this.width = w;
 	}
 
-	public get H() {
+	public getH() {
 		return this.height;
 	}
 
-	public set H(h: number) {
+	public setH(h: number) {
 		this.height = h;
 	}
 
-	public get isVisible() {
+	public isVisible() {
 		return this.visible;
 	}
 
-	public set isVisible(visible: boolean) {
+	public setVisible(visible: boolean) {
 		this.visible = visible;
 	}
 
@@ -206,11 +205,11 @@ export class Label extends Component {
 		ctx.fillText(this.caption, this.x, this.y, this.width);
 	}
 
-	public get text() {
+	public getText() {
 		return this.caption;
 	}
 
-	public set text(caption: string) {
+	public setText(caption: string) {
 		this.caption = caption;
 	}
 

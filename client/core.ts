@@ -1,4 +1,4 @@
-import { WindowManager, UserWindow, Label } from "./ui";
+import { WindowManager, UserWindow, Label } from "./ui.js";
 
 let canvas = document.getElementById("main") as HTMLCanvasElement;
 let wm = new WindowManager(canvas);
