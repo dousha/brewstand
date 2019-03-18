@@ -5,6 +5,13 @@ export class WindowManager {
 		if (document) {
 			document.onresize = this.resizeCanvas;
 		}
+		let instance = this;
+		canvas.onmousemove = function (e) {
+			instance.handleMouseMove(e);
+		};
+		canvas.onmousedown = function (e) {
+			instance.handleMouseClick(e);
+		}
 	}
 
 	public update() {
@@ -13,8 +20,12 @@ export class WindowManager {
 			for (let w of this.windows) {
 				ctx.save();
 				ctx.translate(w.getX(), w.getY());
+				ctx.clearRect(0, 0, w.getW(), w.getH());
 				w.render(ctx);
 				ctx.restore();
+			}
+			if (this.debugging) {
+				this.drawDebugOverlay(ctx);
 			}
 		} else {
 			alert("WTF?");
@@ -53,9 +64,50 @@ export class WindowManager {
 		this.debugging = b;
 	}
 
+	public handleMouseMove(e: MouseEvent) {
+		this.mouseX = e.clientX;
+		this.mouseY = e.clientY;
+		this.update();
+	}
+
+	public handleMouseClick(e: MouseEvent) {
+
+	}
+
+	public getPointingWindow(): UserWindow | undefined {
+		let wins = this.windows.filter(it => {
+			it.isCursorInWindow(this.mouseX, this.mouseY);
+		});
+		if (wins && wins.length > 0) {
+			return wins[wins.length - 1]; // the focused window is always at tail
+		} else {
+			return undefined;
+		}
+	}
+
+	public getPointingControl() {
+		let win = this.getPointingWindow();
+		if (win) {
+			return win.getControlInWindow(this.mouseX - win.getX(), this.mouseY - win.getY());
+		}
+	}
+
+	private drawDebugOverlay(ctx: CanvasRenderingContext2D) {
+		ctx.font = "12px monospace";
+		ctx.fillStyle = "black";
+		ctx.strokeStyle = "black";
+		ctx.textBaseline = "bottom";
+		let corner = ctx.canvas.height - 2;
+		ctx.clearRect(0, corner - 12, ctx.canvas.width, 12);
+		ctx.fillText(`MX: ${this.mouseX}; MY: ${this.mouseY}; WIN: ${this.getPointingWindow()}`, 0, corner);
+	}
+
 	private canvas: HTMLCanvasElement;
 	private windows: Array<UserWindow> = new Array<UserWindow>();
 	private debugging = false;
+
+	private mouseX = 0;
+	private mouseY = 0;
 }
 
 export class UserWindow {
@@ -67,17 +119,17 @@ export class UserWindow {
 
 	public render(ctx: CanvasRenderingContext2D) {
 		// draw a box
-		let titleBarHeight = 20;
+
 		ctx.fillStyle = "black";
 		ctx.strokeStyle = "black";
 		ctx.font = '12px monospace';
 		ctx.textBaseline = "top";
-		ctx.strokeRect(0, 0, this.width, titleBarHeight);
+		ctx.strokeRect(0, 0, this.width, this.titleBarHeight);
 		ctx.fillText(this.title, 3, 3);
-		ctx.strokeRect(0, titleBarHeight, this.width, this.height);
+		ctx.strokeRect(0, this.titleBarHeight, this.width, this.height);
 		// translate into the stuff
 		ctx.save();
-		ctx.translate(this.x, this.y + titleBarHeight);
+		ctx.translate(this.x, this.y + this.titleBarHeight);
 		// then draw components
 		for (let component of this.components) {
 			if (component.isVisible) {
@@ -115,8 +167,27 @@ export class UserWindow {
 		return this.y;
 	}
 
+	public getW() {
+		return this.width;
+	}
+
+	public getH() {
+		return this.height;
+	}
+
+	public isCursorInWindow(x: number, y: number) {
+		let xDelta = x - this.x;
+		let yDelta = y - this.y;
+		return xDelta > 0 && yDelta > 0 && xDelta < this.width && yDelta < this.height + this.titleBarHeight;
+	}
+
+	public getControlInWindow(relativeX: number, relativeY: number) {
+
+	}
+
 	private x = 0;
 	private y = 0;
+	private titleBarHeight = 20;
 	private title: string;
 	private height: number;
 	private width: number;

@@ -7,4 +7,5 @@ let lbl1 = new Label(0, 0, "test", {});
 win.addComponent(lbl1);
 wm.addWindow(win);
 wm.resizeCanvas();
+wm.setDebugging(true);
 wm.update();
