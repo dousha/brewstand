@@ -13,8 +13,14 @@ export class WindowManager {
 			instance.handleMouseDown(e);
 		};
 		canvas.onmouseup = function (e) {
-			instance.handleMouseUp(e);
+			instance.handleMouseUp();
 		};
+		canvas.oncontextmenu = function () {
+			return false;
+		};
+		setInterval(function () {
+			instance.update();
+		}, 16);
 	}
 
 	public update() {
@@ -42,7 +48,6 @@ export class WindowManager {
 
 	public resizeCanvas() {
 		if (document && document.documentElement) {
-			let rect = document.documentElement.getClientRects()[0];
 			let width = Math.floor(Math.max(document.documentElement.clientWidth, window.innerWidth || 0));
 			let height = Math.floor(Math.max(document.documentElement.clientHeight, window.innerHeight || 0));
 			this.canvas.width = width;
@@ -83,17 +88,18 @@ export class WindowManager {
 			this.dragWindow.moveTo(this.dragWindowX + deltaX, this.dragWindowY + deltaY);
 			this.fullRepaint = true;
 		}
-		this.update();
+		//this.update();
 	}
 
 	public handleMouseDown(e: MouseEvent) {
+		e.preventDefault();
 		this.mouseX = e.clientX;
 		this.mouseY = e.clientY;
 		let win = this.getPointingWindow();
 		if (win) {
 			let controls = win.getControlsUnderCursor(this.mouseX - win.getX(), this.mouseY - win.getY());
 			if (controls && controls.length > 0) {
-				controls.forEach(it => it.onClick())
+				controls.forEach(it => it.onClick(e.button))
 			} else {
 				this.dragMouseX = this.mouseX;
 				this.dragMouseY = this.mouseY;
@@ -104,10 +110,10 @@ export class WindowManager {
 			}
 		}
 		this.mouseButton = e.button;
-		this.update();
+		//this.update();
 	}
 
-	public handleMouseUp(e: MouseEvent) {
+	public handleMouseUp() {
 		this.mouseButton = -1;
 		this.dragWindow = undefined;
 	}
@@ -137,7 +143,7 @@ export class WindowManager {
 		ctx.clearRect(0, corner - 12, ctx.canvas.width, 12);
 		let pointingWindow = this.getPointingWindow();
 		let pointingControl = this.getPointingControl();
-		ctx.fillText(`MX: ${this.mouseX}; MY: ${this.mouseY}; WIN: ${pointingWindow}; CTRL: ${pointingControl} WINFOCUS: ${this.hasFocus(pointingWindow)}`, 0, corner);
+		ctx.fillText(`MX: ${this.mouseX}; MY: ${this.mouseY}; WIN: ${pointingWindow && pointingWindow.getTitle()}; CTRL: ${pointingControl && pointingControl.constructor.name} WINFOCUS: ${this.hasFocus(pointingWindow)}`, 0, corner);
 	}
 
 	private hasFocus(win: UserWindow | undefined): boolean {
@@ -204,6 +210,7 @@ export class UserWindow {
 	}
 
 	public addComponent(component: Component) {
+		component.setWindow(this);
 		this.components.push(component);
 	}
 
@@ -265,6 +272,10 @@ export class UserWindow {
 		return this.needFocus;
 	}
 
+	public getTitle() {
+		return this.title;
+	}
+
 	private x = 0;
 	private y = 0;
 	private titleBarHeight = 20;
@@ -273,6 +284,12 @@ export class UserWindow {
 	private width: number;
 	private components: Array<Component> = new Array<Component>();
 	private needFocus = false;
+}
+
+export enum ClickType {
+	LeftMouseButton = 0,
+	MiddleMouseButton = 1,
+	RightMouseButton = 2
 }
 
 export abstract class Component {
@@ -286,7 +303,7 @@ export abstract class Component {
 
 	public abstract render(ctx: CanvasRenderingContext2D): void;
 
-	public abstract onClick(): void;
+	public abstract onClick(button: ClickType): void;
 
 	public abstract onHover(): void;
 
@@ -345,11 +362,20 @@ export abstract class Component {
 		return xDelta > 0 && yDelta > 0 && xDelta < this.width && yDelta < this.height;
 	}
 
+	public notifyParentResize(newWidth: number, newHeight: number) {
+
+	}
+
+	public setWindow(win: UserWindow) {
+		this.win = win;
+	}
+
 	protected x: number;
 	protected y: number;
 	protected width: number;
 	protected height: number;
 	protected visible: boolean;
+	protected win?: UserWindow;
 }
 
 export class Label extends Component {
@@ -390,8 +416,106 @@ export class Label extends Component {
 	public onLeave(): void { }
 
 	private caption: string;
-	private font: string;
-	private size: number;
+	private readonly font: string;
+	private readonly size: number;
 	private color: string;
 	private background: string;
+}
+
+export class Button extends Component {
+	public constructor(x: number, y: number, caption: string, {
+		width = 200,
+		height = 30,
+		baseColor = "#D4D0C8",
+		lineColor = "#0e0e0e",
+		font = "Arial",
+		size = 12,
+		fontColor = "#000000",
+		onClick = function (button: ClickType) {
+			console.log(button);
+		},
+		onHover = function () { },
+		onLeave = function () { }
+	}) {
+		super(x, y, width, height);
+		this.caption = caption;
+		this.baseColor = baseColor;
+		this.borderColor = lineColor;
+		this.font = font;
+		this.size = size;
+		this.fontColor = fontColor;
+		this.onClick = onClick;
+		this.onHover = onHover;
+		this.onLeave = onLeave;
+	}
+
+	render(ctx: CanvasRenderingContext2D): void {
+		ctx.fillStyle = `${this.baseColor}`;
+		ctx.fillRect(this.x, this.y, this.width, this.height);
+		ctx.strokeStyle = `${this.borderColor}`;
+		ctx.strokeRect(this.x, this.y, this.width, this.height);
+		ctx.fillStyle = `${this.fontColor}`;
+		ctx.font = `${this.size}px ${this.font}`;
+		let metric = ctx.measureText(this.caption);
+		let left = (this.width - metric.width) / 2;
+		let top = (this.height - this.size) / 2;
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.fillText(this.caption, left, top);
+		ctx.restore();
+	}
+
+	public getText() {
+		return this.caption;
+	}
+
+	public setText(caption: string) {
+		this.caption = caption;
+	}
+
+	public getBaseColor() {
+		return this.baseColor;
+	}
+
+	public setBaseColor(color: string) {
+		this.baseColor = color;
+	}
+
+	public getBorderColor() {
+		return this.borderColor;
+	}
+
+	public setBorderColor(color: string) {
+		this.borderColor = color;
+	}
+
+	public getFontColor() {
+		return this.fontColor;
+	}
+
+	public setFontColor(color: string) {
+		this.fontColor = color;
+	}
+
+	public drawDebugBorder(ctx: CanvasRenderingContext2D) {
+		super.drawDebugBorder(ctx);
+		let metric = ctx.measureText(this.caption);
+		let left = (this.width - metric.width) / 2;
+		let top = (this.height - this.size) / 2;
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.strokeRect(left, top, metric.width, this.size);
+		ctx.restore();
+	}
+
+	private caption: string;
+	private baseColor: string;
+	private borderColor: string;
+	private readonly font: string;
+	private readonly size: number;
+	private fontColor: string;
+
+	public readonly onClick: (button: ClickType) => void;
+	public readonly onHover: () => void;
+	public readonly onLeave: () => void;
 }
