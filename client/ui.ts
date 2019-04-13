@@ -1,3 +1,11 @@
+function _overlap(s1: number, e1: number, s2: number, e2: number) {
+	return s1 + e1 > s2 && s2 + e2 > s1;
+}
+
+function overlap(x1: number, y1: number, w1: number, h1: number, x2: number, y2: number, w2: number, h2: number) {
+	return _overlap(x1, w1, x2, y2) && _overlap(y1, h1, y2, h2);
+}
+
 export class WindowManager {
 	public constructor(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
@@ -12,7 +20,7 @@ export class WindowManager {
 		canvas.onmousedown = function (e) {
 			instance.handleMouseDown(e);
 		};
-		canvas.onmouseup = function (e) {
+		canvas.onmouseup = function () {
 			instance.handleMouseUp();
 		};
 		canvas.oncontextmenu = function () {
@@ -33,7 +41,6 @@ export class WindowManager {
 				}
 				ctx.save();
 				ctx.translate(w.getX(), w.getY());
-				ctx.clearRect(0, 0, w.getW(), w.getH() + w.getTitleBarHeight());
 				w.render(ctx);
 				this.debugging && w.drawDebugBorder(ctx);
 				ctx.restore();
@@ -181,25 +188,35 @@ export class UserWindow {
 	}
 
 	public render(ctx: CanvasRenderingContext2D) {
-		// draw a box
-		ctx.fillStyle = "black";
-		ctx.strokeStyle = "black";
-		ctx.font = '12px monospace';
-		ctx.textBaseline = "top";
-		ctx.lineWidth = 1;
-		ctx.strokeRect(0, 0, this.width, this.titleBarHeight);
-		ctx.fillText(this.title, 3, 3);
-		ctx.strokeRect(0, this.titleBarHeight, this.width, this.height);
-		// translate into the stuff
-		ctx.save();
-		ctx.translate(0, this.titleBarHeight);
-		// then draw components
-		for (let component of this.components) {
-			if (component.isVisible) {
+		if (this.needGlobalRedraw) {
+			ctx.clearRect(0, 0, w.getW(), w.getH() + w.getTitleBarHeight());
+			// draw a box
+			ctx.fillStyle = "black";
+			ctx.strokeStyle = "black";
+			ctx.font = '12px monospace';
+			ctx.textBaseline = "top";
+			ctx.lineWidth = 1;
+			ctx.strokeRect(0, 0, this.width, this.titleBarHeight);
+			ctx.fillText(this.title, 3, 3);
+			ctx.strokeRect(0, this.titleBarHeight, this.width, this.height);
+			// translate into the stuff
+			ctx.save();
+			ctx.translate(0, this.titleBarHeight);
+			// then draw components
+			for (let component of this.components) {
+				if (component.isVisible) {
+					component.render(ctx);
+				}
+			}
+			ctx.restore();
+		} else {
+			let component = this.hintedComponents.shift();
+			while (component) {
+				ctx.clearRect(component.getX(), component.getY(), component.getW(), component.getH());
 				component.render(ctx);
+				component = this.hintedComponents.shift();
 			}
 		}
-		ctx.restore();
 	}
 
 	public drawDebugBorder(ctx: CanvasRenderingContext2D) {
@@ -217,11 +234,13 @@ export class UserWindow {
 	public moveTo(x: number, y: number) {
 		this.x = x;
 		this.y = y;
+		this.needGlobalRedraw = true;
 	}
 
 	public resizeTo(w: number, h: number) {
 		this.width = w;
 		this.height = h;
+		this.needGlobalRedraw = true;
 	}
 
 	public setTitle(title: string) {
@@ -276,6 +295,16 @@ export class UserWindow {
 		return this.title;
 	}
 
+	public hintRedraw(component: Component) {
+		this.hintedComponents.push(component);
+	}
+
+	public hintRedraw(x: number, y: number, w: number, h: number) {
+		for (let component of this.components) {
+
+		}
+	}
+
 	private x = 0;
 	private y = 0;
 	private titleBarHeight = 20;
@@ -284,6 +313,8 @@ export class UserWindow {
 	private width: number;
 	private components: Array<Component> = new Array<Component>();
 	private needFocus = false;
+	private hintedComponents: Array<Component> = new Array<Component>();
+	private needGlobalRedraw = false;
 }
 
 export enum ClickType {
@@ -518,4 +549,83 @@ export class Button extends Component {
 	public readonly onClick: (button: ClickType) => void;
 	public readonly onHover: () => void;
 	public readonly onLeave: () => void;
+}
+
+export enum ImageType {
+	EXTERNAL,
+	BASE64_PNG = "image/png;base64",
+	BASE64_JPG = "image/jpeg;base64",
+	CANVAS,
+}
+
+export class Picture extends Component {
+	public constructor(x: number, y: number, w: number, h: number, {
+		path = "assets/pictures/missing.png",
+		type = ImageType.EXTERNAL,
+		alt = "Picture",
+	}: {path: string | HTMLCanvasElement, type: ImageType, alt: string}) {
+		super(x, y, w, h);
+		this.path = path;
+		this.type = type;
+		this.alt = alt;
+	}
+
+	onClick(button: ClickType): void {
+	}
+
+	onHover(): void {
+	}
+
+	onLeave(): void {
+	}
+
+	render(ctx: CanvasRenderingContext2D): void {
+		// load picture
+		if (this.isImageMissing) {
+			ctx.fillStyle = "red";
+			ctx.fillText(this.alt, this.x, this.y, this.width);
+			return;
+		}
+		if (!this.img) {
+			let img = new Image();
+			if (this.type & 0x10) {
+				// external source
+				let request = new XMLHttpRequest();
+				let url = this.path as string;
+				request.onreadystatechange = () => {
+					if (request.readyState == XMLHttpRequest.DONE && request.status === 200) {
+						img.src = url;
+						let instance = this;
+						img.addEventListener('load', function () {
+							ctx.drawImage(img, instance.x, instance.y, instance.width, instance.height);
+						});
+						this.img = img;
+					} else {
+						// draw alt
+						this.isImageMissing = true;
+					}
+				};
+				request.open("HEAD", url, true);
+				request.send();
+			} else {
+				// internal source
+				let img = new Image();
+				if (this.type !== ImageType.CANVAS) {
+					img.src = `data:${this.type},${this.path}`;
+					this.img = img;
+				} else {
+					this.img = this.path as HTMLCanvasElement;
+				}
+				ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+			}
+		} else {
+			ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+		}
+	}
+
+	private readonly path: string | HTMLCanvasElement;
+	private readonly type: ImageType;
+	private readonly alt: string;
+	private img: HTMLImageElement | undefined = undefined;
+	private isImageMissing = false;
 }
