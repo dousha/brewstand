@@ -14,7 +14,6 @@ win2.addComponent(lbl2);
 let btn = new Button(0, 200, "Test", {
 	onClick: function (button: ClickType) {
 		if (button === ClickType.LeftMouseButton) {
-			alert("hi");
 			btn.setText("Wow!");
 			lbl1.setText("Cross window ref");
 		}

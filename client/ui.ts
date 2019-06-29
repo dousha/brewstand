@@ -10,9 +10,7 @@ export class WindowManager {
 	public constructor(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
 		this.resizeCanvas();
-		if (document) {
-			document.onresize = this.resizeCanvas;
-		}
+		window.onresize = this.resizeCanvas;
 		let instance = this;
 		canvas.onmousemove = function (e) {
 			instance.handleMouseMove(e);
@@ -301,7 +299,9 @@ export class UserWindow {
 
 	public hintRedraw(x: number, y: number, w: number, h: number) {
 		for (let component of this.components) {
-
+			if (overlap(component.getX(), component.getY(), component.getW(), component.getW(), x, y, w, h)) {
+				this.hintedComponents.push(component);
+			}
 		}
 	}
 
@@ -334,11 +334,15 @@ export abstract class Component {
 
 	public abstract render(ctx: CanvasRenderingContext2D): void;
 
-	public abstract onClick(button: ClickType): void;
+	public onClick(button: ClickType): void { }
 
-	public abstract onHover(): void;
+	public onHover(): void { }
 
-	public abstract onLeave(): void;
+	public onLeave(): void { }
+
+	public onFocus(): void { }
+
+	public onBlur(): void { }
 
 	public drawDebugBorder(ctx: CanvasRenderingContext2D) {
 		ctx.strokeStyle = "blue";
@@ -439,12 +443,6 @@ export class Label extends Component {
 	public setText(caption: string) {
 		this.caption = caption;
 	}
-
-	public onClick(): void { }
-
-	public onHover(): void { }
-
-	public onLeave(): void { }
 
 	private caption: string;
 	private readonly font: string;
@@ -570,16 +568,7 @@ export class Picture extends Component {
 		this.alt = alt;
 	}
 
-	onClick(button: ClickType): void {
-	}
-
-	onHover(): void {
-	}
-
-	onLeave(): void {
-	}
-
-	render(ctx: CanvasRenderingContext2D): void {
+	public render(ctx: CanvasRenderingContext2D): void {
 		// load picture
 		if (this.isImageMissing) {
 			ctx.fillStyle = "red";
@@ -628,4 +617,32 @@ export class Picture extends Component {
 	private readonly alt: string;
 	private img: HTMLImageElement | undefined = undefined;
 	private isImageMissing = false;
+}
+
+export class RadioGroup extends Component {
+
+}
+
+export class Radio extends Component {
+	public constructor() {
+
+	}
+
+	private group: RadioGroup;
+}
+
+export class Checkbox extends Component {
+
+}
+
+export class ComboBox extends Component {
+
+}
+
+export class Table extends Component {
+
+}
+
+export class ProgressBar extends Component {
+
 }
