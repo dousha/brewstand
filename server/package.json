@@ -19,7 +19,7 @@
     "@types/node": "^11.10.4",
     "@types/websocket": "0.0.40",
     "http": "0.0.0",
-    "mongodb": "^3.1.13",
+    "mongodb": "^3.7.4",
     "querystring": "^0.2.0",
     "websocket": "^1.0.28"
   }
